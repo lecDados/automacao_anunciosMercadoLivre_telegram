@@ -23,7 +23,8 @@ async function trocarToken() {
     });
 
     const tokenPath = path.join(__dirname, '../../token.json');
-    fs.writeFileSync(tokenPath, JSON.stringify(response.data, null, 2));
+    const tokenComTimestamp = { ...response.data, obtido_em: Date.now() };
+    fs.writeFileSync(tokenPath, JSON.stringify(tokenComTimestamp, null, 2));
 
     console.log('✅ Token obtido com sucesso e salvo em token.json!\n');
     console.log('access_token:', response.data.access_token.slice(0, 15) + '...');
