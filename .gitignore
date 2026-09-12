@@ -6,6 +6,7 @@ npm-debug.log*
 .env.*.local
 token.json
 chats.json
+historico_enviados.json
 
 logs/
 *.log

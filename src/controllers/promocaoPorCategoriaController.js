@@ -1,6 +1,7 @@
 const { buscarMaisVendidosCategoria, buscarItensDoProduto } = require('../services/mercadoLivre');
 const { filtrarPromocoes } = require('../utils/calcularDesconto');
 const { enriquecerPromocoes } = require('../utils/enriquecerPromocoes');
+const { ehRelevante } = require('../utils/filtrarRelevantes');
 
 /**
  * GET /promocoes-categoria?categoria=MLB1144
@@ -26,19 +27,31 @@ async function listarPromocoesPorCategoria(req, res) {
     const todosOsItens = [];
     for (const destaque of destaques) {
       const itens = await buscarItensDoProduto(destaque.id);
+      itens.forEach((item) => {
+        item._catalogProductId = destaque.id;
+      });
       todosOsItens.push(...itens);
     }
 
     const promocoesBrutas = filtrarPromocoes(todosOsItens);
-    const LIMITE_PROMOCOES = 3;
-    const top = promocoesBrutas.slice(0, LIMITE_PROMOCOES);
-    const promocoes = await enriquecerPromocoes(top);
+    const candidatos = promocoesBrutas.slice(0, 30);
+    const enriquecidos = await enriquecerPromocoes(candidatos);
+    const relevantes = enriquecidos.filter((p) => ehRelevante(p.titulo));
+    const vistos = new Set();
+    const semDuplicados = relevantes.filter((p) => {
+      const chave = p.catalogProductId || p.id;
+      if (vistos.has(chave)) return false;
+      vistos.add(chave);
+      return true;
+    });
+    const promocoes = semDuplicados.slice(0, 5);
 
     return res.json({
       categoria,
       totalDestaques: destaques.length,
       totalItensAnalisados: todosOsItens.length,
       totalPromocoesEncontradas: promocoesBrutas.length,
+      totalRelevantes: relevantes.length,
       totalExibido: promocoes.length,
       promocoes,
     });

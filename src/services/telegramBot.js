@@ -23,6 +23,32 @@ function salvarChats(chats) {
   fs.writeFileSync(CHATS_PATH, JSON.stringify(chats, null, 2));
 }
 
+function iniciarEnvios(chatId) {
+  const chats = lerChats();
+
+  if (!chats.includes(chatId)) {
+    chats.push(chatId);
+    salvarChats(chats);
+    console.log(`✅ Novo chat inscrito: ${chatId}`);
+  }
+
+  bot.sendMessage(
+    chatId,
+    'Seja bem-vindo! 👋\n\nA partir de agora você vai receber, periodicamente, uma seleção das melhores ofertas em games, consoles e periféricos — sempre com desconto de verdade, sem enrolação.\n\nSe quiser pausar os envios a qualquer momento, use o botão ao final de cada envio, ou envie /stop.\n\nBoas compras! 🎮'
+  );
+}
+
+function pararEnvios(chatId) {
+  const chats = lerChats().filter((id) => id !== chatId);
+  salvarChats(chats);
+
+  bot.sendMessage(chatId, 'Tudo certo, suas notificações foram pausadas.', {
+    reply_markup: {
+      inline_keyboard: [[{ text: '▶️ Iniciar anúncios', callback_data: 'iniciar_anuncios' }]],
+    },
+  });
+}
+
 /**
  * Inicia o bot do Telegram e configura os comandos /start e /stop.
  */
@@ -35,27 +61,26 @@ function iniciarBot() {
   bot = new TelegramBot(telegram.token, { polling: true });
 
   bot.onText(/\/start/, (msg) => {
-    const chatId = msg.chat.id;
-    const chats = lerChats();
-
-    if (!chats.includes(chatId)) {
-      chats.push(chatId);
-      salvarChats(chats);
-      console.log(`✅ Novo chat inscrito: ${chatId}`);
-    }
-
-    bot.sendMessage(
-      chatId,
-      '🤖 Bot ativado!\n\nVocê vai receber até 3 promoções de games/consoles a cada 30 minutos.\n\nEnvie /stop a qualquer momento para parar de receber.'
-    );
+    iniciarEnvios(msg.chat.id);
   });
 
   bot.onText(/\/stop/, (msg) => {
     const chatId = msg.chat.id;
-    const chats = lerChats().filter((id) => id !== chatId);
-    salvarChats(chats);
+    pararEnvios(chatId);
+  });
 
-    bot.sendMessage(chatId, '🛑 Notificações desativadas. Envie /start para reativar quando quiser.');
+  // Botão "Parar anúncios" clicado
+  bot.on('callback_query', async (query) => {
+    const chatId = query.message.chat.id;
+
+    if (query.data === 'parar_anuncios') {
+      pararEnvios(chatId);
+    } else if (query.data === 'iniciar_anuncios') {
+      iniciarEnvios(chatId);
+    }
+
+    // Remove o "relógio de carregando" do botão no app do usuário
+    bot.answerCallbackQuery(query.id);
   });
 
   bot.on('polling_error', (error) => {
@@ -105,6 +130,21 @@ async function enviarPromocoesTelegram(promocoes) {
         }
       }
       await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+
+    // Mensagem de rodapé com o botão de parar, depois do lote completo
+    try {
+      await bot.sendMessage(
+        chatId,
+        'Se não quiser mais receber esses anúncios, toque no botão abaixo. Caso contrário, pode ignorar essa mensagem. 🙂',
+        {
+          reply_markup: {
+            inline_keyboard: [[{ text: '🛑 Parar anúncios', callback_data: 'parar_anuncios' }]],
+          },
+        }
+      );
+    } catch (error) {
+      console.error(`Erro ao enviar rodapé para o chat ${chatId}:`, error.message);
     }
   }
 }

@@ -11,4 +11,8 @@ module.exports = {
   telegram: {
     token: process.env.TELEGRAM_BOT_TOKEN || '',
   },
+  afiliado: {
+    mattWord: process.env.ML_AFFILIATE_MATT_WORD || '',
+    mattTool: process.env.ML_AFFILIATE_MATT_TOOL || '',
+  },
 };
